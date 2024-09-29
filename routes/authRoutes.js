@@ -81,8 +81,9 @@ router.get('/dashboard', requireAuth, (req, res) => {
 });
 
 router.get('/messaging', requireAuth, (req, res) => {
-    const { email } = req.user; // دریافت ایمیل کاربر لاگین شده
-    res.render('messaging', { email }); // ارسال ایمیل به view
+    const { email } = req.user;
+    const token = req.token;
+    res.render('messaging', { email, token });
 });
 
 

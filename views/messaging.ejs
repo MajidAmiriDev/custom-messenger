@@ -8,11 +8,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
 </head>
 <body class="bg-gray-100 p-5">
-<h1 class="text-2xl font-bold mb-5">messaging</h1>
+<h1 class="text-2xl font-bold mb-5">Messaging</h1>
 
 <div class="mb-5">
     <input id="usernameInput" type="text" placeholder="Find User" class="border rounded p-2 w-1/2" />
-    <button id="findUserButton" class="bg-blue-500 text-white rounded p-2 ml-2"> Find User</button>
+    <button id="findUserButton" class="bg-blue-500 text-white rounded p-2 ml-2">Find User</button>
 </div>
 
 <div id="chatArea" class="hidden border p-4 rounded bg-white shadow">
@@ -25,66 +25,93 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const userEmail = '<%= email %>';
+    const jwtToken = '<%= token %>';
 
-    const socket = io({ query: { email: userEmail } });
-    socket.on('connect', () => {
-        console.log('Socket connected');
+    const socket = io({
+        auth: { token: jwtToken },
+        query: { email: userEmail }
     });
 
+    socket.on('connect', () => console.log('Socket connected'));
 
-    document.getElementById('findUserButton').addEventListener('click', function() {
+    document.getElementById('findUserButton').addEventListener('click', () => {
         const username = document.getElementById('usernameInput').value;
-        socket.emit('findUser', username);
+        if (username) {
+            socket.emit('findUser', username);
+        }
     });
 
     socket.on('userFound', (username) => {
-        document.getElementById('messages').innerHTML = '';
-        document.getElementById('chatWithUser').innerText = `چت با ${username}`;
-        document.getElementById('chatArea').classList.remove('hidden');
+        updateChatHeader(username);
+        loadPreviousMessages(username);
+    });
 
-        socket.emit('loadMessages', username);
+
+
+    socket.on('userNotFound', (messages) => {
+        alert(messages);
     });
 
     socket.on('loadMessages', (messages) => {
-        messages.forEach(message => {
-            document.getElementById('messages').innerHTML += `<p><strong>${message.sender}:</strong> ${message.content}</p>`;
-        });
-        const messagesDiv = document.getElementById('messages');
-        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to the bottom
+        displayMessages(messages);
     });
-    socket.on('notification', (message) => {
-        alert(message);
-    });
-
-
 
     socket.on('newMessage', (data) => {
-        const currentChatUser = document.getElementById('chatWithUser').innerText.replace(' Chat with  ', '');
-
+        const currentChatUser = getCurrentChatUser();
         if (data.sender === currentChatUser) {
-            document.getElementById('messages').innerHTML += `<p><strong>${data.sender}:</strong> ${data.content}</p>`;
-            const messagesDiv = document.getElementById('messages');
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            appendMessage(data.sender, data.content);
         } else {
-            alert(`پیام جدید از ${data.sender} دارید!`);
+            notifyNewMessage(data.sender);
         }
     });
+
     socket.on('newMessagesAvailable', (messages) => {
-        messages.forEach(message => {
-            alert(`new meesage from ${message.sender}: ${message.content}`);
-        });
+        messages.forEach(message => notifyNewMessage(message.sender, message.content));
     });
-    document.getElementById('sendMessageButton').addEventListener('click', function() {
+
+    document.getElementById('sendMessageButton').addEventListener('click', () => {
         const message = document.getElementById('messageInput').value;
-        const receiver = document.getElementById('chatWithUser').innerText.replace(' Chat with  ', '');
-
-        if (message) {
-            document.getElementById('messages').innerHTML += `<p><strong>${userEmail}:</strong> ${message}</p>`;
-            document.getElementById('messageInput').value = '';
-
+        const receiver = getCurrentChatUser();
+        if (message && receiver) {
+            appendMessage(userEmail, message);
             socket.emit('sendMessage', { sender: userEmail, receiver, content: message });
+            document.getElementById('messageInput').value = ''; // Clear input field
         }
     });
+
+    function updateChatHeader(username) {
+        document.getElementById('messages').innerHTML = '';
+        document.getElementById('chatWithUser').innerText = `چت با ${username}`;
+        document.getElementById('chatArea').classList.remove('hidden');
+    }
+
+    function loadPreviousMessages(username) {
+        socket.emit('loadMessages', username);
+    }
+
+    function displayMessages(messages) {
+        messages.forEach(message => appendMessage(message.sender, message.content));
+        scrollToBottom();
+    }
+
+    function appendMessage(sender, content) {
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.innerHTML += `<p><strong>${sender}:</strong> ${content}</p>`;
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function getCurrentChatUser() {
+        return document.getElementById('chatWithUser').innerText.replace('چت با ', '');
+    }
+
+    function notifyNewMessage(sender, content) {
+        alert(`پیام جدید از ${sender}: ${content || ''}`);
+    }
 </script>
 </body>
 </html>
